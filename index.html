@@ -76,39 +76,33 @@
   let myPlayer = { x: 100, y: 100 };
   let players = {};
 
-  // === CANVAS ===
-  const canvas = document.getElementById('game');
-  const ctx = canvas.getContext('2d');
+  // Oyuncu sayısını 2 ile sınırla ve klonları temizle
+  import { onDisconnect, remove, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const playersRef = ref(db, 'players');
 
-    // MAP
-    ctx.fillStyle = '#ddd';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Bağlantı kopunca oyuncuyu sil
+  onDisconnect(playerRef).remove();
 
-    // PLAYERS
-    for (const id in players) {
-      const p = players[id];
-      ctx.fillStyle = id === playerId ? 'blue' : 'red';
-      ctx.fillRect(p.x, p.y, 30, 30);
-      ctx.fillStyle = '#000';
-      ctx.fillText(id === playerId ? 'Sen' : 'Rakip', p.x, p.y - 5);
-    }
-    requestAnimationFrame(draw);
-  }
-  draw();
-
-  // === FIREBASE SYNC ===
-  onValue(ref(db, 'players'), snap => {
-    players = snap.val() || {};
-  });
-
+  // Oyuncuyu kaydet
   function syncPlayer() {
     set(playerRef, myPlayer);
   }
 
-  syncPlayer();
+  // Eski / klon oyuncuları temizle (max 2 oyuncu)
+  get(playersRef).then(snapshot => {
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      const ids = Object.keys(data);
+      if (ids.length >= 2) {
+        // Fazla oyuncuları sil
+        ids.slice(1).forEach(id => {
+          remove(ref(db, 'players/' + id));
+        });
+      }
+    }
+    syncPlayer();
+  });
 
   // === CONTROLS ===
   const keys = {};
